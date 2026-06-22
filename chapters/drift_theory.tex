@@ -5,7 +5,16 @@
 
 Dataset shift describes a situation where the data observed after deployment differs from the data used during model development. This is a central problem in production ML because models are usually trained under the assumption that future data will be similar to training or validation data \cite{MonitoringPerformance}. When this assumption is violated, model predictions may become less reliable.
 
-\subsection{Data Drift, Concept Drift, and Prediction Drift}
+\subsection{Types of Dataset Shift}
+The different types of dataset shift can be described using the joint distribution of input features $X$ and target variable $Y$. This distribution can be decomposed as
+\begin{equation}
+P(X,Y) = P(Y \mid X)P(X),
+\end{equation}
+or equivalently as
+\begin{equation}
+P(X,Y) = P(X \mid Y)P(Y).
+\end{equation}
+Based on this decomposition, different forms of shift can be understood as changes in different parts of the data-generating process. Data drift is mainly connected with a change in $P(X)$, concept drift with a change in $P(Y \mid X)$, and prior probability shift with a change in $P(Y)$ while $P(X \mid Y)$ remains stable \cite{MorenoTorresDatasetShift2012,GamaConceptDriftSurvey2014}.
 
 \textbf{Data drift}, also called covariate drift, occurs when the distribution of input features changes over time. In this case, the model receives data that differs from the data used during training, validation, or an earlier stable production period \cite{MonitoringPerformance}. Data drift can appear as changed numerical values, changed categorical frequencies, new categories, or changes in missing values.
 
@@ -13,7 +22,10 @@ Dataset shift describes a situation where the data observed after deployment dif
 
 \textbf{Prediction drift} occurs when the distribution of model outputs changes. Even if input features appear stable, a significant change in prediction distribution may indicate a model behavior change, a data pipeline issue, or a change in the population being scored \cite{MonitoringObservabilityMLSystems}.
 
-These types of drift are related but not identical. Data drift can happen before performance degradation becomes visible. Concept drift can directly reduce model quality. Prediction drift can work as an early warning signal when labels are delayed or unavailable.
+\textbf{Prior probability shift / label shift} occurs when the distribution of the target variable changes, while the conditional distribution of features given the class remains stable. Formally, this means that $P(Y)$ changes but $P(X \mid Y)$ stays the same. In practice, this can happen when the proportion of classes changes over time, for example when one customer group, risk class, or event type becomes more common than before \cite{MorenoTorresDatasetShift2012}.
+
+These types of drift are related but not identical. Data drift can happen before performance degradation becomes visible. Concept drift can directly reduce model quality. Prediction drift can work as an early warning signal when labels are delayed or unavailable. Pure covariate shift does not necessarily reduce model quality by itself, which is why drift indicators and model performance metrics are monitored separately \cite{MorenoTorresDatasetShift2012}.
+
 
 \subsection{Types and Causes of Drift}
 
@@ -41,7 +53,8 @@ Drift detection methods are used to determine whether data has changed enough to
 
 \subsection{Statistical and Distance-Based Drift Metrics}
 
-This thesis uses selected common methods for detecting data drift between a reference dataset and a current dataset: the Kolmogorov--Smirnov test, Population Stability Index, and Wasserstein distance. These methods are suitable for batch comparison because they compare two observed data distributions and return either a statistical test result or a drift score. The selected methods are also commonly used in practical ML monitoring workflows for numerical feature drift detection \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}.
+This thesis uses selected common methods for detecting data drift between a reference dataset and a current dataset: the Kolmogorov--Smirnov test, Population Stability Index, and Wasserstein distance. These methods are suitable for batch comparison because they compare two observed data distributions and return either a statistical test result or a drift score. The selected methods are also commonly used in practical ML monitoring workflows for numerical feature drift detection \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}. This feature-by-feature testing approach must be interpreted carefully because testing many features increases the chance of false positive drift detections. This can be handled either by applying a multiple-testing correction, such as the Bonferroni correction, or by using a dataset-level aggregation rule, for example the share of features marked as drifted.
+
 \subsubsection{Kolmogorov--Smirnov Test}
 
 The Kolmogorov--Smirnov (KS) test is a non-parametric statistical test used to compare two numerical distributions. It does not assume that the data follows a normal distribution. The null hypothesis states that the reference and current samples come from the same distribution. If the resulting p-value is below a selected significance level, the feature can be marked as drifted \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}.
@@ -215,4 +228,7 @@ Model performance metrics are calculated when true labels are available. For cla
 
 The evaluation of monitoring results should consider both detection quality and practical usefulness. For batch drift detection, the system checks whether the selected metrics correctly identify controlled changes in the current dataset. For streaming drift detection, DDM and ADWIN can be evaluated using true detection rate, false detection rate, missed detection rate, and detection delay \cite{LearningUnderConceptDrift}.
 
-The prototype does not aim to replace a complete commercial ML monitoring platform. Instead, we implement the core monitoring logic directly in the application: dataset upload, reference-current comparison, streaming drift detection, drift metric calculation, performance metric calculation, result storage, and dashboard visualization. External tools such as SciPy, Evidently AI, and River support these workflows, while the thesis demonstrates the monitoring process in a transparent and reproducible MVP.
+The prototype does not aim to replace a complete commercial ML monitoring platform. Instead, we implement the core monitoring logic directly in the application: dataset upload, reference-current comparison, streaming drift detection, drift metric calculation, performance metric calculation, result storage, and dashboard visualization. External tools such as SciPy, Evidently AI, and River support these workflows, while the thesis demonstrates the monitoring process in a transparent and reproducible MVP. 
+
+Multivariate drift detection methods, such as Maximum Mean Discrepancy or domain-classifier-based drift detection, as well as drift adaptation and automatic retraining strategies, are deliberately left out of scope and considered future work.
+
