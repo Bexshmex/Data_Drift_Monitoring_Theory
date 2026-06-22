@@ -1,0 +1,59 @@
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[czech,english]{babel}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+
+\usepackage{newtxtext}
+\usepackage{newtxmath}
+
+\usepackage[
+  a4paper,
+  tmargin=4cm,
+  bmargin=3cm,
+  lmargin=3cm,
+  rmargin=2cm,
+  headheight=0.8cm,
+  headsep=1cm,
+  footskip=0.5cm
+]{geometry}
+
+\usepackage{graphicx}
+\usepackage{pdfpages}
+\usepackage{setspace}
+\usepackage{indentfirst}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{url}
+
+\usepackage[
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  filecolor=black,
+  urlcolor=blue
+]{hyperref}
+
+% --- Bibliography Setup ---
+\usepackage[
+  backend=biber,
+  style=numeric,
+  sorting=none,
+  giveninits=true,
+  maxbibnames=99
+]{biblatex}
+
+\addbibresource{Bibliography.bib}
+
+\setlength{\bibitemsep}{1em}
+
+\clubpenalty=9500
+\widowpenalty=9500
+
+\renewcommand{\vec}[1]{\boldsymbol{#1}}
+
+\newcommand{\CZ}{\selectlanguage{czech}}
+\newcommand{\EN}{\selectlanguage{english}}

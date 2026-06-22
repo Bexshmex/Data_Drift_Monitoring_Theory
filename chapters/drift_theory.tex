@@ -1,0 +1,218 @@
+\chapter{Data Drift and Drift Detection Methods}
+\label{ch:data-drift-methods}
+
+\section{Taxonomy of Dataset Shift}
+
+Dataset shift describes a situation where the data observed after deployment differs from the data used during model development. This is a central problem in production ML because models are usually trained under the assumption that future data will be similar to training or validation data \cite{MonitoringPerformance}. When this assumption is violated, model predictions may become less reliable.
+
+\subsection{Data Drift, Concept Drift, and Prediction Drift}
+
+\textbf{Data drift}, also called covariate drift, occurs when the distribution of input features changes over time. In this case, the model receives data that differs from the data used during training, validation, or an earlier stable production period \cite{MonitoringPerformance}. Data drift can appear as changed numerical values, changed categorical frequencies, new categories, or changes in missing values.
+
+\textbf{Concept drift} occurs when the relationship between input features and the target variable changes. In this case, similar input values may require different predictions than before. Concept drift is usually more difficult to detect because it often requires ground truth labels or performance-based signals \cite{LearningUnderConceptDrift}.
+
+\textbf{Prediction drift} occurs when the distribution of model outputs changes. Even if input features appear stable, a significant change in prediction distribution may indicate a model behavior change, a data pipeline issue, or a change in the population being scored \cite{MonitoringObservabilityMLSystems}.
+
+These types of drift are related but not identical. Data drift can happen before performance degradation becomes visible. Concept drift can directly reduce model quality. Prediction drift can work as an early warning signal when labels are delayed or unavailable.
+
+\subsection{Types and Causes of Drift}
+
+Drift can appear in different forms. It can be sudden, gradual, incremental, or recurring \cite{LearningUnderConceptDrift}. Sudden drift appears quickly, for example after a major external event or a system change. Gradual drift appears slowly as a new pattern replaces an older one over time. Incremental drift describes a continuous transition from one concept to another. Recurring drift appears when an older pattern returns, for example because of seasonality.
+
+The causes of drift can be internal or external. Internal causes include schema changes, broken data pipelines, missing features, changed preprocessing logic, or application bugs. External causes include user behavior changes, seasonality, market changes, economic conditions, new competitors, or changes in the environment where the model is used \cite{MonitoringPerformance}.
+
+For this thesis, the most important practical case is batch data drift between a reference dataset and a current dataset. The prototype does not focus on full streaming adaptation, but on detecting whether the current uploaded data differs from the selected baseline.
+
+\section{Reference Data and Current Data}
+
+The monitoring approach in this thesis is based on comparing reference data and current data.
+
+The \textbf{reference data} is the baseline dataset. It can come from training data, validation data, or a previously stable production period. It represents the expected structure and distribution of the data.
+
+The \textbf{current data} is the new dataset that should be checked. In the prototype, we upload or select a current dataset and compare it with the reference dataset.
+
+This distinction is necessary because drift detection requires a comparison point. Without reference data, the system cannot determine whether the current data is normal or shifted. A similar monitoring approach creates benchmark distribution statistics from training and validation data and later compares them with production distribution statistics \cite{MonitoringPerformance}.
+
+In the implemented prototype, we use this reference-current comparison as the central monitoring workflow. The system compares feature distributions, calculates drift indicators, and stores the results as monitoring runs.
+
+\section{Drift Detection Methods}
+
+Drift detection methods are used to determine whether data has changed enough to require attention. Different methods are suitable for different types of data and monitoring scenarios. In general, drift detection methods can be grouped into statistical tests, distance-based methods, and stream detectors \cite{LearningUnderConceptDrift}.
+
+\subsection{Statistical and Distance-Based Drift Metrics}
+
+This thesis uses selected common methods for detecting data drift between a reference dataset and a current dataset: the Kolmogorov--Smirnov test, Population Stability Index, and Wasserstein distance. These methods are suitable for batch comparison because they compare two observed data distributions and return either a statistical test result or a drift score. The selected methods are also commonly used in practical ML monitoring workflows for numerical feature drift detection \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}.
+\subsubsection{Kolmogorov--Smirnov Test}
+
+The Kolmogorov--Smirnov (KS) test is a non-parametric statistical test used to compare two numerical distributions. It does not assume that the data follows a normal distribution. The null hypothesis states that the reference and current samples come from the same distribution. If the resulting p-value is below a selected significance level, the feature can be marked as drifted \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}.
+The KS statistic is defined as:
+\begin{equation}
+D = \sup_x \left| F_{\mathrm{ref}}(x) - F_{\mathrm{cur}}(x) \right|,
+\end{equation}
+where $F_{\mathrm{ref}}(x)$ is the empirical cumulative distribution function of the reference data, $F_{\mathrm{cur}}(x)$ is the empirical cumulative distribution function of the current data, and $\sup_x$ denotes the maximum difference over all values of $x$.
+
+The advantage of the KS test is its high sensitivity. It can detect even small changes in numerical distributions. However, this can also be a disadvantage for large datasets, because small but practically insignificant differences may become statistically significant. Therefore, when large datasets are used, sampling or stricter significance thresholds may be needed \cite{EvidentlyDataDriftLargeDatasets}.
+
+\subsubsection{Population Stability Index}
+
+Population Stability Index (PSI) measures how much a variable distribution has changed between two samples or time periods. It is commonly used in monitoring tasks where the goal is to detect meaningful population changes rather than very small statistical differences.
+
+PSI is calculated as:
+
+\begin{equation}
+\mathrm{PSI} = \sum_{i=1}^{n} (r_i - c_i)\ln\left(\frac{r_i}{c_i}\right),
+\end{equation}
+
+where $r_i$ is the proportion of observations in bin $i$ in the reference dataset, $c_i$ is the proportion of observations in bin $i$ in the current dataset, and $n$ is the number of bins.
+
+A common interpretation is:
+
+\begin{itemize}
+    \item \textbf{PSI $< 0.1$:} no significant population change;
+    \item \textbf{$0.1 \leq$ PSI $< 0.2$:} moderate population change;
+    \item \textbf{PSI $\geq 0.2$:} significant population change.
+\end{itemize}
+
+Compared with the KS test, PSI is less sensitive to small changes and is more predictable for large datasets. This makes it useful when the monitoring system should react only to larger and more interpretable distribution changes \cite{EvidentlyDataDriftLargeDatasets}.
+
+\subsubsection{Wasserstein Distance}
+
+Wasserstein distance, also known as Earth-Mover Distance, measures how much effort is needed to transform one distribution into another. For numerical features, it can be interpreted as the amount of movement required to align the current distribution with the reference distribution \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}.
+
+For one-dimensional distributions, the 1st Wasserstein distance can be written as:
+
+\begin{equation}
+W(P,Q) = \int_{-\infty}^{\infty} \left| F_P(x) - F_Q(x) \right| \, dx,
+\end{equation}
+
+where $F_P(x)$ and $F_Q(x)$ are the cumulative distribution functions of the compared distributions.
+
+Unlike PSI, Wasserstein distance works directly with numerical values and does not necessarily require binning. It is useful when the magnitude of numerical change matters. However, because the value depends on the scale of the feature, it may be difficult to compare across features with different units. A normalized version can be used by dividing the distance by the standard deviation:
+
+\begin{equation}
+W_{\mathrm{norm}}(P,Q) = \frac{W(P,Q)}{\sigma_{\mathrm{ref}}},
+\end{equation}
+
+where $\sigma_{\mathrm{ref}}$ is the standard deviation of the reference feature. This makes the result easier to compare across numerical features. In practical monitoring, Wasserstein distance can provide a compromise between the high sensitivity of the KS test and the lower sensitivity of PSI\cite{EvidentlyDataDriftLargeDatasets}.
+
+These methods are suitable for the prototype because the system works mainly with uploaded reference and current datasets. Therefore, the task is closer to batch comparison than continuous stream monitoring.
+
+\subsubsection{Chi-Square Test}
+
+The Chi-square test is commonly used for categorical features. It compares the observed category frequencies in the current dataset with the expected frequencies from the reference dataset. The test statistic is calculated as:
+
+\begin{equation}
+\chi^2 = \sum_{i=1}^{k} \frac{(O_i - E_i)^2}{E_i},
+\end{equation}
+
+where $O_i$ is the observed frequency of category $i$, $E_i$ is the expected frequency of category $i$, and $k$ is the number of categories. If the p-value is below the selected significance level, the categorical feature can be marked as drifted \cite{SciPyDocumentation}.
+
+\subsubsection{Anderson--Darling Test}
+
+The Anderson--Darling test is another statistical test for comparing distributions. Compared with the Kolmogorov--Smirnov test, it gives more weight to differences in the tails of the distribution. This can be useful when rare but important values change between the reference and current datasets.
+
+A simplified two-sample form can be written as:
+
+\begin{equation}
+A^2 = \int_{-\infty}^{\infty}
+\frac{\left(F_{\mathrm{ref}}(x) - F_{\mathrm{cur}}(x)\right)^2}
+{H(x)(1-H(x))} \, dH(x),
+\end{equation}
+
+where $F_{\mathrm{ref}}(x)$ and $F_{\mathrm{cur}}(x)$ are empirical cumulative distribution functions, and $H(x)$ is the pooled empirical distribution. A larger value indicates a stronger difference between the compared distributions \cite{SciPyDocumentation}.
+
+\subsubsection{Cramér--von Mises Test}
+
+The Cramér--von Mises test compares two empirical distributions by measuring the squared difference between their cumulative distribution functions. Unlike the Kolmogorov--Smirnov test, which focuses on the maximum difference, this method considers differences across the whole distribution.
+
+The statistic can be written as:
+
+\begin{equation}
+\omega^2 = \int_{-\infty}^{\infty}
+\left(F_{\mathrm{ref}}(x) - F_{\mathrm{cur}}(x)\right)^2 \, dH(x),
+\end{equation}
+
+where $F_{\mathrm{ref}}(x)$ and $F_{\mathrm{cur}}(x)$ are the empirical cumulative distribution functions of the compared datasets, and $H(x)$ is the pooled empirical distribution. A larger value means that the two distributions differ more strongly \cite{SciPyDocumentation}.
+
+\subsection{Stream Detectors}
+
+Stream detectors are used when data arrives continuously. Instead of comparing one reference dataset with one current dataset, they process observations over time and try to detect the moment when the data-generating process changes.
+
+In this thesis, four stream detectors are discussed: Drift Detection Method (DDM), Adaptive Windowing (ADWIN), Early Drift Detection Method (EDDM), and Page-Hinkley Test. DDM is used as the foundational baseline because it represents the classical error-rate monitoring approach. ADWIN is treated as the main streaming method because it is more flexible: it uses an adaptive window and can resize it automatically when the stream changes \cite{RiverDDM,RiverADWIN,ComparativeConceptDriftDetectors}.
+
+\subsubsection{Drift Detection Method}
+
+Drift Detection Method (DDM) monitors the error rate of an online classifier. Under a stable distribution, the error rate should decrease as more instances are processed. If the error rate increases significantly, DDM raises either a warning or a drift signal \cite{RiverDDM}.
+
+At time step $i$, DDM tracks the error rate $p_i$ and standard deviation $s_i$:
+
+\begin{equation}
+s_i = \sqrt{\frac{p_i(1-p_i)}{i}}.
+\end{equation}
+
+The method stores the minimum observed value $p_{\min} + s_{\min}$. A warning is raised when:
+
+\begin{equation}
+p_i + s_i \geq p_{\min} + 2s_{\min},
+\end{equation}
+
+and drift is detected when:
+
+\begin{equation}
+p_i + s_i \geq p_{\min} + 3s_{\min}.
+\end{equation}
+
+DDM is simple and interpretable, which makes it useful as a baseline. Its main limitation is that it depends on labeled data because it must know whether each prediction was correct.
+
+\subsubsection{Adaptive Windowing}
+
+Adaptive Windowing (ADWIN) detects drift using a variable-length sliding window. When the stream is stable, the window grows. When a change is detected, older observations are removed and the detector focuses on newer data \cite{RiverADWIN}.
+
+ADWIN splits the current window $W$ into two subwindows, $W_0$ and $W_1$, and compares their means:
+
+\begin{equation}
+|\mu_{W_0} - \mu_{W_1}| > \epsilon.
+\end{equation}
+
+If the difference is statistically significant, ADWIN reports drift. Its main advantage is that it does not require a fixed window size. This makes it more suitable for changing production streams than basic error-rate methods.
+The threshold $\epsilon$ is not a fixed hyperparameter, but is dynamically calculated using the Hoeffding bound, which guarantees a strict limit on the false positive rate depending on a user-defined confidence level $\delta$.
+
+In this thesis, DDM serves as the baseline stream detector, while ADWIN is used as the preferred adaptive method for the streaming part of the project. DDM provides a simple reference point based on error-rate monitoring, whereas ADWIN is applied to detect changes in continuous data streams with a dynamically adjusted window.
+
+\subsubsection{Early Drift Detection Method}
+
+Early Drift Detection Method (EDDM) is an extension of DDM. Instead of monitoring only the error rate, it monitors the distance between classification errors. Under stable conditions, the distance between errors should increase as the classifier learns from the stream. If the distance between errors starts to decrease, it may indicate that the model is making mistakes more frequently and that drift is occurring \cite{ComparativeConceptDriftDetectors}.
+
+EDDM is especially useful for gradual drift because it can react to slower changes in the data stream. However, like DDM, it requires labeled data because it must know whether each prediction is correct. Therefore, it is mainly suitable for supervised online monitoring scenarios.
+
+\subsubsection{Page-Hinkley Test}
+
+The Page-Hinkley Test is a sequential change detection method used to identify changes in the average value of a monitored variable. In drift detection, it can be applied to prediction errors, loss values, or other streaming measurements. The method tracks cumulative deviations from the observed mean and raises a drift signal when the accumulated difference exceeds a selected threshold \cite{ComparativeConceptDriftDetectors}.
+
+A simplified form of the monitored cumulative difference can be written as:
+
+\begin{equation}
+m_t = m_{t-1} + (x_t - \bar{x}_t - \delta),
+\end{equation}
+
+where $x_t$ is the observed value at time $t$, $\bar{x}_t$ is the running mean, and $\delta$ is a tolerance parameter for small changes. Drift is detected when the difference between the cumulative value and its minimum becomes larger than a predefined threshold.
+
+The advantage of the Page-Hinkley Test is that it can detect changes in a continuous stream without storing all previous observations. Its limitation is that the result depends on the selected threshold and tolerance parameters.
+
+\subsection{Selected Metrics and Tools for the Prototype}
+
+The monitoring prototype uses different drift detection methods depending on the data type and monitoring mode. For batch comparison between a reference dataset and a current dataset, we use statistical and distance-based metrics. For streaming data, we use detectors that process observations over time.
+
+For batch drift detection, the prototype focuses on three methods: the Kolmogorov--Smirnov test, Wasserstein distance, and Population Stability Index. These methods were selected because they represent different but complementary approaches to distribution comparison. The Kolmogorov--Smirnov test provides a statistical test with a p-value, Wasserstein distance measures the magnitude of numerical distribution change, and PSI gives an interpretable stability score based on binned distributions \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}.
+
+The number of batch methods is intentionally limited. Adding many drift metrics would make the prototype more complex without necessarily improving the main goal of the thesis. Each additional method requires implementation, parameter selection, result interpretation, testing, and visualization. For a bachelor thesis prototype, this would increase the scope and make the system harder to evaluate clearly. Therefore, the selected three methods provide a practical balance between theoretical coverage, implementation effort, and interpretability.
+
+For streaming drift detection, the prototype focuses on DDM and ADWIN. DDM is used as the baseline stream detector because it represents the classical error-rate monitoring approach. It tracks the model error rate and raises a warning or drift signal when the error increases significantly. ADWIN is used as the preferred adaptive stream detector because it maintains a variable-length window and automatically reduces the window when a statistically significant change is detected \cite{RiverDDM,RiverADWIN,ComparativeConceptDriftDetectors}.
+
+Other stream detectors, such as EDDM and the Page-Hinkley Test, are useful in concept drift research, but they are not implemented in the prototype. Including several stream detectors would require additional stream simulation, parameter tuning, comparison logic, and separate evaluation of detection delay and false alarms. This would make the project too heavy for the intended MVP. DDM and ADWIN are sufficient for the prototype because they allow a clear comparison between two important approaches: supervised error-rate monitoring and adaptive-window drift detection.
+
+Model performance metrics are calculated when true labels are available. For classification tasks, the prototype uses accuracy, precision, recall, F1-score, and optionally AUC-ROC. For regression tasks, it uses MAE, MSE, RMSE, and MAPE. These metrics show whether the model still produces reliable predictions on current or streaming data \cite{ModelMonitoringFrameworks}.
+
+The evaluation of monitoring results should consider both detection quality and practical usefulness. For batch drift detection, the system checks whether the selected metrics correctly identify controlled changes in the current dataset. For streaming drift detection, DDM and ADWIN can be evaluated using true detection rate, false detection rate, missed detection rate, and detection delay \cite{LearningUnderConceptDrift}.
+
+The prototype does not aim to replace a complete commercial ML monitoring platform. Instead, we implement the core monitoring logic directly in the application: dataset upload, reference-current comparison, streaming drift detection, drift metric calculation, performance metric calculation, result storage, and dashboard visualization. External tools such as SciPy, Evidently AI, and River support these workflows, while the thesis demonstrates the monitoring process in a transparent and reproducible MVP.

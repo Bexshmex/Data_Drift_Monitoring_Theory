@@ -1,0 +1,29 @@
+main.tex
+preamble.tex
+
+frontmatter/
+  titlepage.tex
+  abstract_cz.tex
+  abstract_en.tex
+  acknowledgement.tex
+
+chapters/
+  introduction.tex
+  mlops_monitoring.tex
+  drift_theory.tex
+  architecture.tex
+  implementation.tex
+  evaluation.tex
+  discussion.tex
+  conclusion.tex
+
+bibliography.bib
+
+Images/
+  TITLE/
+    cvut.pdf (или .png)
+    fjfi.pdf (или .png)
+
+pdf/
+  zadani_bk.pdf
+  prohlaseni.pdf

@@ -1,0 +1,140 @@
+\chapter{System Requirements and Architecture}
+\label{ch:system-requirements-architecture}
+
+\section{Purpose of the System}
+
+The purpose of the system is to provide a prototype for automatic monitoring of data drift and model performance. The system is designed to compare reference data with current data, detect distribution changes, evaluate model performance when true labels are available, and present the results in a dashboard.
+
+The prototype follows the main goals of the thesis assignment: operational monitoring of machine learning models, detection of data drift, implementation of selected drift detection methods, preparation of controlled drift scenarios, and evaluation of monitoring results. \cite{MonitoringPerformance}
+
+The system is not intended to replace a full industrial MLOps platform. Instead, it demonstrates the core workflow of model monitoring in a controlled bachelor thesis prototype.
+
+\section{Functional Requirements}
+
+Functional requirements describe what the system must provide to the user. The main functional requirements are listed in Table~\ref{tab:functional-requirements}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{p{0.18\textwidth} p{0.72\textwidth}}
+\hline
+\textbf{ID} & \textbf{Requirement} \\
+\hline
+FR1 & The system must allow the user to upload or select a reference dataset. \\
+FR2 & The system must allow the user to upload or select a current dataset. \\
+FR3 & The system must validate whether the datasets can be compared. \\
+FR4 & The system must calculate drift metrics for selected features. \\
+FR5 & The system must support statistical and distance-based drift detection for batch data. \\
+FR6 & The system must support stream drift detection using DDM and ADWIN. \\
+FR7 & The system must allow the user to upload or register a machine learning model. \\
+FR8 & The system must calculate model performance metrics when true labels are available. \\
+FR9 & The system must store monitoring runs and calculated results. \\
+FR10 & The system must display drift results, model performance metrics, and run summaries in a dashboard. \\
+\hline
+\end{tabular}
+\caption{Functional requirements of the monitoring prototype}
+\label{tab:functional-requirements}
+\end{table}
+
+\section{Non-Functional Requirements}
+
+Non-functional requirements describe the expected quality of the system. Since the project is a prototype, the focus is placed on clarity, reproducibility, and extensibility rather than large-scale production deployment.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{p{0.22\textwidth} p{0.68\textwidth}}
+\hline
+\textbf{Requirement} & \textbf{Description} \\
+\hline
+Usability & The dashboard should present monitoring results in a clear and understandable way. \\
+Reproducibility & Monitoring runs should be stored so that results can be reviewed later. \\
+Modularity & Dataset handling, drift detection, model performance calculation, and visualization should be separated. \\
+Extensibility & New drift detectors and performance metrics should be possible to add later. \\
+Reliability & Invalid files, missing columns, and incompatible datasets should be handled with clear error messages. \\
+Performance & The prototype should work with small and medium-sized datasets suitable for demonstration and evaluation. \\
+Security & Uploaded files should be handled safely, especially model artifacts and user-provided datasets. \\
+\hline
+\end{tabular}
+\caption{Non-functional requirements of the monitoring prototype}
+\label{tab:non-functional-requirements}
+\end{table}
+
+\section{System Architecture}
+
+The prototype follows a client-server architecture. The frontend provides the user interface for uploading data, starting monitoring runs, and viewing results. The backend handles dataset validation, drift calculation, model handling, performance evaluation, and result storage. The database stores metadata about datasets, models, monitoring runs, drift results, and performance results.
+
+The architecture consists of the following main components:
+
+\begin{itemize}
+    \item \textbf{Frontend dashboard:} provides interaction with the monitoring system and displays results.
+    \item \textbf{Backend API:} exposes endpoints for datasets, drift runs, model artifacts, and performance monitoring.
+    \item \textbf{Dataset service:} validates uploaded datasets and prepares them for comparison.
+    \item \textbf{Drift detection service:} calculates batch and stream drift detection results.
+    \item \textbf{Model performance service:} loads or registers models and calculates prediction metrics.
+    \item \textbf{Database:} stores metadata, monitoring runs, drift results, and performance results.
+    \item \textbf{File storage:} stores uploaded datasets and model artifacts.
+\end{itemize}
+
+This separation makes the system easier to maintain and extend. For example, additional drift detectors can be added to the drift detection service without changing the dashboard logic.
+
+\section{Data Flow}
+
+The system workflow starts with dataset selection or upload. The reference dataset represents the baseline distribution, while the current dataset represents new data that should be checked.
+
+The batch monitoring workflow is as follows:
+
+\begin{enumerate}
+    \item The user uploads or selects a reference dataset.
+    \item The user uploads or selects a current dataset.
+    \item The backend validates file format, columns, and basic data quality.
+    \item The drift detection service compares selected features.
+    \item The system calculates drift scores and drift status for each feature.
+    \item The results are stored as a monitoring run.
+    \item The dashboard displays the summary and feature-level results.
+\end{enumerate}
+
+The model performance workflow is executed when a model and true labels are available:
+
+\begin{enumerate}
+    \item The user selects or uploads a model artifact.
+    \item The system applies the model to the current dataset.
+    \item Predictions are compared with true labels.
+    \item Classification or regression metrics are calculated.
+    \item The performance results are stored and displayed in the dashboard.
+\end{enumerate}
+
+For streaming drift detection, observations are processed over time. DDM monitors changes in classifier error rate, while ADWIN detects changes using an adaptive window. The output of the stream detector is stored as a drift signal and can be displayed as part of the monitoring results.
+
+\section{Database Design}
+
+The database is used to store metadata and monitoring results. The main entities are:
+
+\begin{itemize}
+    \item \textbf{Dataset:} stores information about uploaded reference and current datasets.
+    \item \textbf{Model artifact:} stores metadata about uploaded or registered models.
+    \item \textbf{Monitoring run:} represents one execution of drift or performance monitoring.
+    \item \textbf{Drift result:} stores feature-level drift scores and drift status.
+    \item \textbf{Performance result:} stores calculated model performance metrics.
+\end{itemize}
+
+The database does not need to store all analytical logic. Its main purpose is to preserve results, support reproducibility, and allow the user to review previous monitoring runs.
+
+\section{Technology Stack}
+
+The prototype uses Python-based tools because the project focuses on machine learning monitoring and data analysis. The main technologies are:
+
+\begin{itemize}
+    \item \textbf{Python:} core programming language for data processing and monitoring logic.
+    \item \textbf{FastAPI:} backend API for dataset upload, drift runs, and model-related operations.
+    \item \textbf{Pandas:} dataset loading, preprocessing, and feature-level analysis.
+    \item \textbf{SciPy:} statistical tests and distance-based drift metrics.
+    \item \textbf{River:} stream drift detection, especially DDM and ADWIN.
+    \item \textbf{Scikit-learn:} model evaluation metrics and model compatibility.
+    \item \textbf{Database system:} storage of datasets, models, monitoring runs, and results.
+    \item \textbf{Dashboard framework:} visualization of drift results and performance metrics.
+\end{itemize}
+
+The selected stack is suitable for a bachelor thesis prototype because it supports both batch monitoring and streaming drift detection while remaining simple enough for demonstration and evaluation.
+
+\section{Chapter Summary}
+
+This chapter defined the requirements and architecture of the monitoring prototype. The system is designed around the comparison of reference and current data, with additional support for streaming drift detection and model performance monitoring. The next chapter describes how the proposed architecture is implemented in the prototype.

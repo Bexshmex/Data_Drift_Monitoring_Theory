@@ -1,0 +1,52 @@
+\chapter{Operational Monitoring of Machine Learning Models}
+\label{ch:operational-monitoring}
+
+\section{Machine Learning Models in Production}
+
+Machine learning models are usually trained on historical data and later applied to new data in a production environment. In contrast to traditional software, the behavior of an ML model depends not only on source code, but also on the statistical properties of the data used during inference. Therefore, a deployed model can become less reliable even when the application code remains unchanged.
+
+Production model performance can degrade because of changes in the external environment, missing input features, schema changes, data quality problems, seasonality, or changes in user behavior \cite{MonitoringPerformance}. This means that a model which performed well during training and validation may later produce weaker predictions on current production data.
+
+For this reason, monitoring is an important part of the MLOps lifecycle. ML implementation is commonly described as an end-to-end process that includes data handling, model building, validation, deployment, continuous monitoring, performance tracking, and maintenance \cite{MachineLearningModelinProduction}. In this thesis, the focus is not placed on building a complete industrial MLOps platform, but on implementing the monitoring part of this lifecycle.
+
+A production ML system should therefore be observed not only as software, but also as a data-driven decision system. Traditional monitoring can detect technical failures such as latency or service errors, while ML monitoring must also detect changes in data, predictions, model performance, and business impact \cite{MonitoringObservabilityMLSystems}.
+
+\section{Data Quality and ML-Specific Monitoring}
+
+Standard software monitoring usually focuses on technical indicators such as uptime, latency, memory usage, error rates, or resource consumption. These indicators are important, but they do not show whether an ML model still produces reliable predictions. ML-specific monitoring extends this view by observing the quality of input data, the distribution of model predictions, and the predictive performance of the model.
+
+Data quality is important because poor input data can strongly affect model behavior. Production data may contain missing values, outliers, inconsistent records, different data formats, or changed schemas. These problems can appear because of application bugs, upstream pipeline changes, source system errors, or changes in business processes \cite{MonitoringPerformance}. For this reason, data validation and data quality checks are necessary before drift detection and performance monitoring are interpreted.
+
+A practical ML monitoring process can include checks such as data volume, missing value rate, feature ranges, average feature values, type consistency, and schema compatibility \cite{MonitoringPerformance}. These checks do not directly prove that a model performs poorly, but they can reveal problems that may cause unreliable predictions.
+
+In this thesis, ML-specific monitoring consists of three main parts:
+
+\begin{itemize}
+    \item \textbf{Data quality monitoring:} checking whether uploaded datasets have a usable and comparable structure.
+    \item \textbf{Data drift monitoring:} comparing feature distributions between reference and current datasets.
+    \item \textbf{Model performance monitoring:} evaluating prediction quality when a model and labeled data are available.
+\end{itemize}
+
+This separation is useful because each type of monitoring answers a different question. Data quality monitoring checks whether the data is valid. Drift monitoring checks whether the current data is different from the reference data. Performance monitoring checks whether the model still produces acceptable predictions.
+
+\section{Model Performance Degradation and Calibration}
+
+Model performance degradation means that the predictive quality of a deployed model becomes worse over time. This can happen when input data changes, when the relationship between features and the target changes, or when data quality problems appear in the production pipeline \cite{MonitoringPerformance}. A performance drop can lead to incorrect predictions and poor decisions, especially when the model is used in business-critical processes.
+
+Performance degradation can be measured directly only when true labels are available. For classification tasks, common metrics include accuracy, precision, recall, F1-score, and AUC-ROC. For regression tasks, metrics such as MAE, MSE, RMSE, and MAPE can be used \cite{ModelMonitoringFrameworks}. The selected metric must match the goal of the model. For example, recall may be more important in fraud detection, while precision may be more important when false alarms are costly.
+
+Model calibration is also relevant for classification models that output probabilities. A model is well calibrated when predicted probabilities correspond to real outcome frequencies. For example, if a model predicts a probability of 0.8 for a group of cases, approximately 80\% of those cases should belong to the positive class. Poor calibration can make a model unreliable even when its classification accuracy appears acceptable. Calibration can be evaluated using reliability diagrams, which compare predicted confidence with observed accuracy, and by metrics such as Expected Calibration Error (ECE), which calculates the weighted difference between average confidence and average accuracy across confidence bins \cite{UnderstandingModelCalibration}.
+
+In this thesis, calibration is treated as part of the theoretical background. The prototype mainly focuses on drift detection and model performance metrics. However, calibration can be considered as a future extension, especially for classification models where probability outputs are used for decision-making.
+
+\section{Monitoring Indicators: SLA, SLO, and SLI}
+
+Monitoring results must be converted into clear and understandable indicators. In operational systems, this is often described through service-level concepts: SLA, SLO, and SLI.
+
+A \textbf{Service Level Indicator} (SLI) is a measurable value that describes the behavior of a system. In ML monitoring, examples of SLIs include missing value rate, number of drifted features, PSI value, prediction distribution shift, accuracy, F1-score, MAE, or inference latency.
+
+A \textbf{Service Level Objective} (SLO) defines the expected or acceptable level for an indicator. For example, an SLO can state that model accuracy should remain above a selected threshold, that the percentage of missing values should stay below a defined limit, or that PSI should not exceed a selected drift threshold.
+
+A \textbf{Service Level Agreement} (SLA) is a formal agreement about expected service quality. In a bachelor thesis prototype, SLA is mostly theoretical because the system is not deployed as a commercial service. However, the idea is still useful because it shows how monitoring thresholds can be connected to operational expectations.\cite{AutonomousObservabilitySLOSLA}
+
+In this prototype, we use monitoring indicators mainly as technical and analytical thresholds. Drift scores, data quality checks, and model performance metrics are used to decide whether the monitoring run should be interpreted as stable, warning-level, or degraded.

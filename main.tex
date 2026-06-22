@@ -1,0 +1,68 @@
+\documentclass[11pt,a4paper,oneside]{book}
+
+\input{preamble}
+
+\newcommand{\documentdate}{January 20, 2025}
+
+\begin{document}
+
+% -------- FRONT MATTER --------
+\frontmatter
+\pagestyle{empty}
+
+\input{frontmatter/titlepage}
+
+\includepdf[pages=-]{pdf/zadani_bk.pdf}
+\includepdf[pages=-]{pdf/prohlaseni.pdf}
+
+\input{frontmatter/acknowledgement}
+\clearpage
+
+\input{frontmatter/abstract_cz}
+\clearpage
+
+\input{frontmatter/abstract_en}
+\clearpage
+
+% -------- MAIN MATTER --------
+\mainmatter
+\pagestyle{headings}
+
+\pagenumbering{arabic}
+\setcounter{page}{8}
+
+\tableofcontents
+\clearpage
+
+\chapter*{Introduction}
+\addcontentsline{toc}{chapter}{Introduction}
+
+Machine learning models are widely used in real-world applications to support decision-making and automate business processes. However, their performance can decrease after deployment because production data may change over time due to shifts in user behavior, external conditions, business processes, missing data, application errors, schema changes, or changes in data sources \cite{MonitoringPerformance,MachineLearningModelinProduction}. This problem is closely related to data drift, where the data used in production becomes different from the data used during training or validation \cite{MonitoringPerformance}.
+
+Because of this, model monitoring is an important part of the machine learning lifecycle. It helps observe whether a deployed model continues to behave as expected in production. Monitoring can include tracking prediction quality, error rates, confidence scores, latency, feature distributions, missing values, and schema changes \cite{MonitoringPerformance}.
+
+A reliable monitoring process should also focus on input data quality. Important indicators include data volume, average values of input variables, and missing or null values \cite{MonitoringPerformance}. In addition, statistical methods such as Population Stability Index, Kolmogorov--Smirnov test, Wasserstein distance, and Chi-square test can be used to compare reference data with current data \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}. If significant differences are detected, alerts can notify developers or data scientists that the model may no longer be performing reliably.
+
+The aim of this bachelor thesis is to design and implement a prototype system for automatic monitoring of data drift and model performance. The project focuses on operational monitoring of machine learning models, data quality checks, batch and streaming drift detection, model performance evaluation, result storage, and dashboard visualization.
+
+\clearpage
+
+% -------- CHAPTERS --------
+\include{chapters/mlops_monitoring}
+\include{chapters/drift_theory}
+\include{chapters/system-requirements-architecture}
+\include{chapters/implementation}
+\include{chapters/evaluation}
+\include{chapters/discussion}
+\include{chapters/conclusion}
+
+% -------- BACK MATTER --------
+\backmatter
+\pagestyle{plain}
+
+% Keep this while testing. Remove later if you want only cited sources.
+\nocite{*}
+
+\printbibliography[heading=bibintoc,title={Bibliography}]
+
+\end{document}
