@@ -57,28 +57,39 @@ This thesis uses selected common methods for detecting data drift between a refe
 
 \subsubsection{Kolmogorov--Smirnov Test}
 
-The Kolmogorov--Smirnov (KS) test is a non-parametric statistical test used to compare two numerical distributions. It does not assume that the data follows a normal distribution. The null hypothesis states that the reference and current samples come from the same distribution. If the resulting p-value is below a selected significance level, the feature can be marked as drifted \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}.
+The Kolmogorov--Smirnov (KS) test is a two-sample, non-parametric, distribution-free statistical test for numerical features. It compares the empirical cumulative distribution function of the reference sample with the empirical cumulative distribution function of the current sample. The method does not assume a normal distribution, which makes it suitable for general tabular data used in monitoring tasks \cite{ConoverNonparametric1999,SciPyDocumentation}.
+
+The null hypothesis states that the reference and current samples come from the same distribution. In the prototype, the decision is based on the p-value. If the p-value is lower than the selected significance level $\alpha$, the feature is marked as drifted. A typical value is $\alpha = 0.05$:
+
+\begin{equation}
+p < \alpha.
+\end{equation}
+
 The KS statistic is defined as:
+
 \begin{equation}
 D = \sup_x \left| F_{\mathrm{ref}}(x) - F_{\mathrm{cur}}(x) \right|,
 \end{equation}
-where $F_{\mathrm{ref}}(x)$ is the empirical cumulative distribution function of the reference data, $F_{\mathrm{cur}}(x)$ is the empirical cumulative distribution function of the current data, and $\sup_x$ denotes the maximum difference over all values of $x$.
+where $F_{\mathrm{ref}}(x)$ is the empirical cumulative distribution function of the reference data, $F_{\mathrm{cur}}(x)$ is the empirical cumulative distribution function of the current data, and $\sup_x$ denotes the maximum difference over all values of $x$. Besides the p-value decision, the statistic $D$ can also be used as a drift score because it describes the maximum distance between the two cumulative distributions.
 
-The advantage of the KS test is its high sensitivity. It can detect even small changes in numerical distributions. However, this can also be a disadvantage for large datasets, because small but practically insignificant differences may become statistically significant. Therefore, when large datasets are used, sampling or stricter significance thresholds may be needed \cite{EvidentlyDataDriftLargeDatasets}.
+The advantage of the KS test is its high sensitivity. It can detect shifts at any point in the cumulative distribution. However, it is less sensitive in the distribution tails than tests such as Anderson--Darling. A named limitation of the KS test is sample-size sensitivity: on large datasets, even very small and practically irrelevant differences can become statistically significant. For this reason, the prototype can use sampling, stricter thresholds, or additional interpretation of the $D$ statistic instead of relying only on the p-value \cite{EvidentlyDataDriftLargeDatasets}.
+
+The KS test was selected because it is simple, well-known, implemented in SciPy, and suitable as a baseline statistical test for numerical feature drift.
 
 \subsubsection{Population Stability Index}
 
-Population Stability Index (PSI) measures how much a variable distribution has changed between two samples or time periods. It is commonly used in monitoring tasks where the goal is to detect meaningful population changes rather than very small statistical differences.
+Population Stability Index (PSI) measures how much a variable distribution has changed between two samples or time periods. It can be applied to numerical features after binning and to categorical features using category frequencies. For numerical features, the values must first be divided into bins. Common binning strategies are equal-width bins and equal-frequency, or quantile, bins. In practice, 10 quantile bins are often used, but the result depends on the selected number of bins and binning strategy \cite{MonitoringPerformance,EvidentlyDataDriftLargeDatasets}.
 
 PSI is calculated as:
 
 \begin{equation}
 \mathrm{PSI} = \sum_{i=1}^{n} (r_i - c_i)\ln\left(\frac{r_i}{c_i}\right),
 \end{equation}
-
 where $r_i$ is the proportion of observations in bin $i$ in the reference dataset, $c_i$ is the proportion of observations in bin $i$ in the current dataset, and $n$ is the number of bins.
 
-A common interpretation is:
+A practical issue appears when a bin has zero observations in either the reference or current dataset. In that case, the logarithm can diverge. To avoid this, a small smoothing value $\epsilon$, for example $0.0001$, can be added to empty bin proportions before the calculation. This makes the score numerically stable.
+
+PSI is symmetric and can be interpreted as a discretised symmetric form of information-theoretic distribution comparison. It is related to KL-based comparison, but it is easier to explain in monitoring dashboards because the output is a single stability score. A common interpretation is:
 
 \begin{itemize}
     \item \textbf{PSI $< 0.1$:} no significant population change;
@@ -86,29 +97,47 @@ A common interpretation is:
     \item \textbf{PSI $\geq 0.2$:} significant population change.
 \end{itemize}
 
-Compared with the KS test, PSI is less sensitive to small changes and is more predictable for large datasets. This makes it useful when the monitoring system should react only to larger and more interpretable distribution changes \cite{EvidentlyDataDriftLargeDatasets}.
+These thresholds are rules of thumb, not strict mathematical laws. They should be interpreted together with the business context, sample size, and feature importance. Compared with the KS test, PSI is less sensitive to very small changes and is more predictable for large datasets. This makes it useful when the monitoring system should react mainly to larger and more interpretable distribution changes \cite{MonitoringPerformance,EvidentlyDataDriftLargeDatasets}.
+
+PSI was selected because it is easy to interpret, works well in dashboards, and is commonly used in production monitoring for comparing current data with a reference population.
 
 \subsubsection{Wasserstein Distance}
 
-Wasserstein distance, also known as Earth-Mover Distance, measures how much effort is needed to transform one distribution into another. For numerical features, it can be interpreted as the amount of movement required to align the current distribution with the reference distribution \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}.
+Wasserstein distance, also known as Earth-Mover Distance, measures how much effort is needed to transform one distribution into another. For numerical features, it can be interpreted as the minimum amount of ``work'' required to move the probability mass of the current distribution so that it matches the reference distribution \cite{EvidentlyDataDriftLargeDatasets,SciPyDocumentation}.
+
+Unlike PSI, Wasserstein distance works directly with numerical values and does not require binning. This makes it useful when the magnitude of a numerical shift matters. While the KS test mainly answers whether two distributions are statistically different, Wasserstein distance gives a distance score that reflects how large the shift is.
 
 For one-dimensional distributions, the 1st Wasserstein distance can be written as:
 
 \begin{equation}
 W(P,Q) = \int_{-\infty}^{\infty} \left| F_P(x) - F_Q(x) \right| \, dx,
 \end{equation}
-
 where $F_P(x)$ and $F_Q(x)$ are the cumulative distribution functions of the compared distributions.
 
-Unlike PSI, Wasserstein distance works directly with numerical values and does not necessarily require binning. It is useful when the magnitude of numerical change matters. However, because the value depends on the scale of the feature, it may be difficult to compare across features with different units. A normalized version can be used by dividing the distance by the standard deviation:
+A limitation of Wasserstein distance is scale dependence. The same absolute distance can have a different meaning for features measured in different units. For example, a shift of 5 units may be large for one feature but small for another. To improve cross-feature comparability, the prototype can use a normalized version:
 
 \begin{equation}
 W_{\mathrm{norm}}(P,Q) = \frac{W(P,Q)}{\sigma_{\mathrm{ref}}},
 \end{equation}
+where $\sigma_{\mathrm{ref}}$ is the standard deviation of the reference feature. This makes the result easier to compare across numerical features.
 
-where $\sigma_{\mathrm{ref}}$ is the standard deviation of the reference feature. This makes the result easier to compare across numerical features. In practical monitoring, Wasserstein distance can provide a compromise between the high sensitivity of the KS test and the lower sensitivity of PSI\cite{EvidentlyDataDriftLargeDatasets}.
+Wasserstein distance was selected because it captures the magnitude of numerical distribution change without requiring binning. In practical monitoring, it provides a useful middle ground between the high sensitivity of the KS test and the lower sensitivity of PSI, especially for large-dataset drift comparison \cite{EvidentlyDataDriftLargeDatasets}.
 
-These methods are suitable for the prototype because the system works mainly with uploaded reference and current datasets. Therefore, the task is closer to batch comparison than continuous stream monitoring.
+\begin{table}[h]
+\centering
+\begin{tabular}{p{0.18\textwidth} p{0.16\textwidth} p{0.18\textwidth} p{0.14\textwidth} p{0.18\textwidth} p{0.12\textwidth}}
+\hline
+\textbf{Method} & \textbf{Data type} & \textbf{Output} & \textbf{Binning} & \textbf{Sensitivity} & \textbf{Threshold} \\
+\hline
+Kolmogorov--Smirnov & Numerical & p-value and $D$ statistic & No & Very sensitive, especially with large samples; less sensitive in tails & $p < 0.05$ or $D$ threshold \\
+Population Stability Index & Numerical or categorical & Stability score & Yes for numerical features & Less sensitive to small changes; depends on bins & 0.1 and 0.2 rules of thumb \\
+Wasserstein distance & Numerical & Distance score & No & Captures magnitude of shift; scale-dependent & Normalized distance threshold \\
+\hline
+\end{tabular}
+\caption{Comparison of selected batch drift detection methods}
+\label{tab:selected-batch-drift-methods}
+\end{table}
+The comparison shows why these three methods were selected for the prototype. The KS test provides a formal statistical decision, PSI provides an interpretable stability score, and Wasserstein distance measures the magnitude of numerical shift. Together, they cover the main needs of batch reference-current drift detection without making the prototype too complex.
 
 \subsubsection{Chi-Square Test}
 
@@ -117,7 +146,6 @@ The Chi-square test is commonly used for categorical features. It compares the o
 \begin{equation}
 \chi^2 = \sum_{i=1}^{k} \frac{(O_i - E_i)^2}{E_i},
 \end{equation}
-
 where $O_i$ is the observed frequency of category $i$, $E_i$ is the expected frequency of category $i$, and $k$ is the number of categories. If the p-value is below the selected significance level, the categorical feature can be marked as drifted \cite{SciPyDocumentation}.
 
 \subsubsection{Anderson--Darling Test}
@@ -131,7 +159,6 @@ A^2 = \int_{-\infty}^{\infty}
 \frac{\left(F_{\mathrm{ref}}(x) - F_{\mathrm{cur}}(x)\right)^2}
 {H(x)(1-H(x))} \, dH(x),
 \end{equation}
-
 where $F_{\mathrm{ref}}(x)$ and $F_{\mathrm{cur}}(x)$ are empirical cumulative distribution functions, and $H(x)$ is the pooled empirical distribution. A larger value indicates a stronger difference between the compared distributions \cite{SciPyDocumentation}.
 
 \subsubsection{Cramér--von Mises Test}
@@ -144,7 +171,6 @@ The statistic can be written as:
 \omega^2 = \int_{-\infty}^{\infty}
 \left(F_{\mathrm{ref}}(x) - F_{\mathrm{cur}}(x)\right)^2 \, dH(x),
 \end{equation}
-
 where $F_{\mathrm{ref}}(x)$ and $F_{\mathrm{cur}}(x)$ are the empirical cumulative distribution functions of the compared datasets, and $H(x)$ is the pooled empirical distribution. A larger value means that the two distributions differ more strongly \cite{SciPyDocumentation}.
 
 \subsection{Stream Detectors}
@@ -162,13 +188,11 @@ At time step $i$, DDM tracks the error rate $p_i$ and standard deviation $s_i$:
 \begin{equation}
 s_i = \sqrt{\frac{p_i(1-p_i)}{i}}.
 \end{equation}
-
 The method stores the minimum observed value $p_{\min} + s_{\min}$. A warning is raised when:
 
 \begin{equation}
 p_i + s_i \geq p_{\min} + 2s_{\min},
 \end{equation}
-
 and drift is detected when:
 
 \begin{equation}
@@ -207,7 +231,6 @@ A simplified form of the monitored cumulative difference can be written as:
 \begin{equation}
 m_t = m_{t-1} + (x_t - \bar{x}_t - \delta),
 \end{equation}
-
 where $x_t$ is the observed value at time $t$, $\bar{x}_t$ is the running mean, and $\delta$ is a tolerance parameter for small changes. Drift is detected when the difference between the cumulative value and its minimum becomes larger than a predefined threshold.
 
 The advantage of the Page-Hinkley Test is that it can detect changes in a continuous stream without storing all previous observations. Its limitation is that the result depends on the selected threshold and tolerance parameters.
